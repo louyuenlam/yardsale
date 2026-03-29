@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Car Boot">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Car Boot Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #fdf6e3;
+    --paper: #fffdf7;
+    --ink: #1a1208;
+    --accent: #d94f00;
+    --accent2: #f0a500;
+    --line: #c8b89a;
+    --soft: #e8dcc8;
+    --green: #2d6a4f;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 16px 16px calc(16px + var(--safe-bottom));
+    padding-top: calc(16px + var(--safe-top));
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 31px, var(--line) 31px, var(--line) 32px);
+    background-attachment: fixed;
+  }
+
+  .page { max-width: 1000px; margin: 0 auto; }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    padding: 24px 0 18px;
+    border-bottom: 3px double var(--ink);
+    margin-bottom: 24px;
+    background: var(--bg);
+  }
+  header::before {
+    content: '🏷️ YARD SALE 🏷️';
+    display: block;
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.8rem, 5vw, 3.2rem);
+    font-weight: 900;
+    letter-spacing: -1px;
+    line-height: 1;
+    color: var(--ink);
+  }
+  h1 span { color: var(--accent); }
+  .date-badge {
+    display: inline-block;
+    margin-top: 10px;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 11px;
+    letter-spacing: 3px;
+    padding: 4px 14px;
+    font-weight: 500;
+  }
+  .version { font-size: 9px; color: var(--line); letter-spacing: 2px; margin-top: 5px; }
+
+  /* ── FORM ── */
+  .form-card {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 5px 5px 0 var(--ink);
+    position: relative;
+  }
+  .form-card::before {
+    content: 'NEW SALE ENTRY';
+    position: absolute;
+    top: -11px; left: 16px;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    letter-spacing: 3px;
+    padding: 2px 10px;
+    font-weight: 500;
+  }
+
+  /* iPad: 5 columns. Phone: 2 columns */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    gap: 14px;
+    align-items: end;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+
+  label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    font-weight: 500;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .label-bargain { color: var(--accent2); }
+
+  input {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--ink);
+    padding: 8px 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px; /* 16px prevents iOS zoom on focus */
+    color: var(--ink);
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+    border-radius: 0;
+    -webkit-appearance: none;
+  }
+  input:focus { border-bottom-color: var(--accent); background: rgba(217,79,0,0.04); }
+  input::placeholder { color: var(--line); }
+  input.bargain-input:focus { border-bottom-color: var(--accent2); background: rgba(240,165,0,0.06); }
+
+  .total-display {
+    background: var(--soft);
+    border: 2px solid var(--ink);
+    padding: 8px 10px;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--green);
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    letter-spacing: 1px;
+  }
+
+  .btn-add {
+    background: var(--accent);
+    color: white;
+    border: 2px solid var(--ink);
+    padding: 14px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: all 0.1s;
+    width: 100%;
+    margin-top: 16px;
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+  .btn-add:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--ink); }
+
+  /* ── STATS ── */
+  .summary-bar { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-box {
+    flex: 1; min-width: 120px;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    padding: 14px 16px;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .stat-label { font-size: 9px; letter-spacing: 3px; color: var(--accent); font-weight: 500; margin-bottom: 4px; }
+  .stat-value { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; color: var(--ink); line-height: 1; }
+  .stat-value.money { color: var(--green); }
+
+  /* ── DESKTOP TABLE (iPad / large screens) ── */
+  .table-wrap {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    box-shadow: 5px 5px 0 var(--ink);
+    overflow-x: auto;
+    margin-bottom: 24px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--ink); color: var(--bg); }
+  th { padding: 10px 14px; font-size: 10px; letter-spacing: 2px; text-align: left; font-weight: 500; }
+  tbody tr { border-bottom: 1px solid var(--soft); transition: background 0.1s; }
+  tbody tr:hover { background: rgba(240,165,0,0.08); }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: 10px 14px; font-size: 13px; }
+  td.item-name { font-weight: 500; word-break: break-word; }
+  td.money-cell { color: var(--green); font-weight: 500; }
+  td.strike { text-decoration: line-through; color: var(--line); font-size: 11px; }
+  .row-num { color: var(--line); font-size: 11px; width: 32px; }
+  .action-btns { display: flex; gap: 5px; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--line); font-size: 13px; letter-spacing: 1px; }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; display: block; }
+
+  /* ── MOBILE CARDS (iPhone / small screens) ── */
+  .mobile-cards { display: none; margin-bottom: 24px; }
+  .sale-card {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-bottom: none;
+    padding: 14px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sale-card:last-child { border-bottom: 2px solid var(--ink); }
+  .sale-card:nth-child(even) { background: #fdfaf3; }
+  .card-num { color: var(--line); font-size: 11px; min-width: 20px; flex-shrink: 0; }
+  .card-body { flex: 1; min-width: 0; }
+  .card-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+  .card-meta { font-size: 12px; color: var(--line); display: flex; gap: 10px; flex-wrap: wrap; }
+  .card-meta span { white-space: nowrap; }
+  .card-total { font-weight: 600; font-size: 16px; color: var(--green); flex-shrink: 0; margin-right: 8px; }
+  .card-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+  .mobile-empty {
+    text-align: center; padding: 40px 20px; color: var(--line);
+    font-size: 13px; letter-spacing: 1px;
+    border: 2px solid var(--ink); background: var(--paper); margin-bottom: 24px;
+  }
+  .mobile-empty .icon { font-size: 2.5rem; margin-bottom: 10px; display: block; }
+
+  /* ── BUTTONS ── */
+  .btn-edit, .btn-del {
+    background: none;
+    border: 1.5px solid var(--line);
+    color: var(--line);
+    width: 34px; height: 34px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    padding: 0;
+    border-radius: 0;
+    -webkit-appearance: none;
+  }
+  .btn-edit:active, .btn-edit:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-del:active, .btn-del:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── MISC ── */
+  .discount-pill {
+    display: inline-block; background: var(--accent2); color: var(--ink);
+    font-size: 9px; font-weight: 500; padding: 1px 6px; letter-spacing: 1px; vertical-align: middle; margin-left: 4px;
+  }
+  .label-bargain { font-size: 10px; letter-spacing: 2px; font-weight: 500; color: var(--accent2); text-transform: uppercase; }
+
+  /* ── EXPORT ROW ── */
+  .export-row { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+  .btn-export {
+    background: var(--green); color: white;
+    border: 2px solid var(--ink); padding: 13px 24px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; letter-spacing: 2px;
+    cursor: pointer; box-shadow: 3px 3px 0 var(--ink); transition: all 0.1s;
+    -webkit-appearance: none; border-radius: 0;
+  }
+  .btn-export:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--ink); }
+  .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-clear {
+    background: transparent; color: var(--ink);
+    border: 2px solid var(--ink); padding: 13px 20px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500; letter-spacing: 2px;
+    cursor: pointer; transition: all 0.1s;
+    -webkit-appearance: none; border-radius: 0;
+  }
+  .btn-clear:active { background: var(--soft); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 16px;
+    background: var(--ink); color: var(--bg);
+    padding: 12px 20px; font-size: 13px; letter-spacing: 1px;
+    border: 2px solid var(--accent2);
+    opacity: 0; transform: translateY(10px); transition: all 0.3s;
+    pointer-events: none; z-index: 300; max-width: calc(100vw - 32px);
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── EDIT MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(26,18,8,0.6);
+    z-index: 200; align-items: center; justify-content: center;
+    padding: 20px; padding-top: calc(20px + var(--safe-top));
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--paper); border: 2px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--ink); padding: 28px 20px 20px;
+    width: 100%; max-width: 500px; position: relative;
+  }
+  .modal::before {
+    content: 'EDIT ITEM'; position: absolute; top: -11px; left: 16px;
+    background: var(--accent2); color: var(--ink);
+    font-size: 10px; letter-spacing: 3px; padding: 2px 10px; font-weight: 500;
+  }
+  .modal h3 { font-family: 'Playfair Display', serif; font-size: 1.3rem; margin-bottom: 18px; }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .modal-grid .field-full { grid-column: 1 / -1; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  .btn-save {
+    background: var(--accent2); color: var(--ink);
+    border: 2px solid var(--ink); padding: 11px 20px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 2px;
+    cursor: pointer; box-shadow: 3px 3px 0 var(--ink);
+    -webkit-appearance: none; border-radius: 0;
+  }
+  .btn-modal-del {
+    background: var(--accent); color: white;
+    border: 2px solid var(--ink); padding: 11px 20px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 2px;
+    cursor: pointer; box-shadow: 3px 3px 0 var(--ink);
+    -webkit-appearance: none; border-radius: 0;
+  }
+  .btn-cancel {
+    background: transparent; color: var(--ink);
+    border: 2px solid var(--ink); padding: 11px 16px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 2px;
+    cursor: pointer; -webkit-appearance: none; border-radius: 0;
+  }
+
+  /* ── IPHONE ONLY LAYOUT ── */
+  .table-wrap { display: none !important; }
+  .mobile-cards { display: block !important; }
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .stat-box { min-width: 100px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Sale <span>Tracker</span></h1>
+    <div class="date-badge" id="todayDate"></div>
+    <div class="version">v5 — IPHONE</div>
+  </header>
+
+  <!-- FORM -->
+  <div class="form-card">
+    <div class="form-grid">
+      <div class="field">
+        <label>Item Name</label>
+        <input id="iName" type="text" placeholder="e.g. Lamp, Books…" autocomplete="off" autocorrect="off">
+      </div>
+      <div class="field">
+        <label>Price / Unit (£) <span style="font-weight:400;color:var(--line);letter-spacing:0;text-transform:none">opt.</span></label>
+        <input id="iPrice" type="number" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label class="label-bargain">Price Sold (£) <span style="font-weight:400;color:var(--line);letter-spacing:0;text-transform:none">opt.</span></label>
+        <input id="iSold" type="number" min="0" step="0.01" placeholder="0.00" inputmode="decimal" class="bargain-input">
+      </div>
+      <div class="field">
+        <label>Quantity</label>
+        <input id="iQty" type="number" min="1" step="1" value="1" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>Total (£)</label>
+        <div class="total-display" id="totalPreview">—</div>
+      </div>
+    </div>
+    <button class="btn-add" onclick="addItem()">＋ ADD ITEM</button>
+  </div>
+
+  <!-- STATS -->
+  <div class="summary-bar">
+    <div class="stat-box">
+      <div class="stat-label">ITEMS SOLD</div>
+      <div class="stat-value" id="statItems">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">UNITS SOLD</div>
+      <div class="stat-value" id="statUnits">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">TOTAL EARNED</div>
+      <div class="stat-value money" id="statTotal">£0.00</div>
+    </div>
+  </div>
+
+  <!-- DESKTOP TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>ITEM NAME</th><th>PRICE / UNIT</th>
+          <th>PRICE SOLD</th><th>QTY</th><th>TOTAL</th><th>TIME</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="salesBody">
+        <tr><td colspan="8"><div class="empty-state"><span class="icon">🏷️</span>No sales yet — add your first item above!</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MOBILE CARDS -->
+  <div class="mobile-cards" id="mobileCards">
+    <div class="mobile-empty"><span class="icon">🏷️</span>No sales yet — add your first item above!</div>
+  </div>
+
+  <!-- EDIT MODAL -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <h3>Edit Item</h3>
+      <div class="modal-grid">
+        <div class="field field-full">
+          <label>Item Name</label>
+          <input id="eName" type="text" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Price / Unit (£)</label>
+          <input id="ePrice" type="number" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label class="label-bargain">Price Sold (£)</label>
+          <input id="eSold" type="number" min="0" step="0.01" placeholder="optional" inputmode="decimal" class="bargain-input">
+        </div>
+        <div class="field">
+          <label>Quantity</label>
+          <input id="eQty" type="number" min="1" step="1" inputmode="numeric">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">CANCEL</button>
+        <button class="btn-modal-del" onclick="deleteFromModal()">🗑 DELETE</button>
+        <button class="btn-save" onclick="saveEdit()">✓ SAVE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="export-row">
+    <button class="btn-clear" onclick="clearAll()">CLEAR ALL</button>
+    <button class="btn-export" id="exportBtn" onclick="exportXLSX()" disabled>⬇ EXPORT TO EXCEL</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let sales = [], idCounter = 0, editingId = null;
+
+  // ── STORAGE ──
+  // Safari on iOS wipes localStorage for file:// URLs when browser closes.
+  // Solution: save to BOTH localStorage AND a cookie (cookies persist in Safari).
+  
+  function saveAll() {
+    const payload = JSON.stringify({ sales, counter: idCounter });
+    // 1. localStorage
+    try { localStorage.setItem('cb', payload); } catch(e) {}
+    // 2. Cookie (survives Safari close on iOS, expires in 7 days)
+    try {
+      const exp = new Date(Date.now() + 7*24*60*60*1000).toUTCString();
+      // Split into chunks if needed (cookies have 4KB limit)
+      const chunks = [];
+      const chunkSize = 3000;
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        chunks.push(payload.slice(i, i + chunkSize));
+      }
+      document.cookie = `ys_chunks=${chunks.length};expires=${exp};path=/`;
+      chunks.forEach((chunk, i) => {
+        document.cookie = `ys_${i}=${encodeURIComponent(chunk)};expires=${exp};path=/`;
+      });
+    } catch(e) {}
+    // 3. IndexedDB
+    try {
+      const req = indexedDB.open('cb_db', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('d');
+      req.onsuccess = e => {
+        const tx = e.target.result.transaction('d', 'readwrite');
+        tx.objectStore('d').put(payload, 'ys');
+      };
+    } catch(e) {}
+  }
+
+  function getCookieData() {
+    try {
+      const getCookie = name => {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? match[2] : null;
+      };
+      const numChunks = parseInt(getCookie('ys_chunks') || '0');
+      if (!numChunks) return null;
+      let payload = '';
+      for (let i = 0; i < numChunks; i++) {
+        const chunk = getCookie(`ys_${i}`);
+        if (!chunk) return null;
+        payload += decodeURIComponent(chunk);
+      }
+      return payload;
+    } catch(e) { return null; }
+  }
+
+  async function loadAll() {
+    let payload = null;
+
+    // 1. Try localStorage first
+    try { payload = localStorage.getItem('cb'); } catch(e) {}
+
+    // 2. Try cookies (survives Safari close)
+    if (!payload) { payload = getCookieData(); }
+
+    // 3. Try IndexedDB
+    if (!payload) {
+      try {
+        payload = await new Promise(resolve => {
+          const req = indexedDB.open('cb_db', 1);
+          req.onupgradeneeded = e => e.target.result.createObjectStore('d');
+          req.onsuccess = e => {
+            const tx = e.target.result.transaction('d', 'readonly');
+            const r  = tx.objectStore('d').get('ys');
+            r.onsuccess = e => resolve(e.target.result || null);
+            r.onerror   = () => resolve(null);
+          };
+          req.onerror = () => resolve(null);
+        });
+      } catch(e) {}
+    }
+
+    if (payload) {
+      try {
+        const parsed = JSON.parse(payload);
+        sales     = parsed.sales   || [];
+        idCounter = parsed.counter || 0;
+      } catch(e) {}
+    }
+
+    renderAll();
+    updateStats();
+  }
+
+  // ── DATE ──
+  const d = new Date(2026, 3, 6);
+  document.getElementById('todayDate').textContent =
+    d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).toUpperCase();
+
+  loadAll();
+
+  // ── FORM INPUTS ──
+  ['iPrice','iQty','iSold'].forEach(id => document.getElementById(id).addEventListener('input', updatePreview));
+  ['iName','iPrice','iSold','iQty'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+  });
+
+  function updatePreview() {
+    const p    = parseFloat(document.getElementById('iPrice').value);
+    const sold = parseFloat(document.getElementById('iSold').value);
+    const q    = parseInt(document.getElementById('iQty').value) || 0;
+    // Price Sold is flat (not multiplied by qty); Price/Unit × qty
+    const t = (!isNaN(sold) && sold >= 0) ? sold : (!isNaN(p) && p >= 0 ? p * q : 0);
+    document.getElementById('totalPreview').textContent = t > 0 ? '£' + t.toFixed(2) : '—';
+  }
+
+  // ── ADD ITEM ──
+  function addItem() {
+    const name      = document.getElementById('iName').value.trim();
+    const price     = parseFloat(document.getElementById('iPrice').value);
+    const soldRaw   = document.getElementById('iSold').value;
+    const soldPrice = soldRaw !== '' ? parseFloat(soldRaw) : null;
+    const qty       = parseInt(document.getElementById('iQty').value) || 1;
+
+    if (!name) return showToast('⚠ Please enter an item name.');
+    if ((isNaN(price) || price < 0) && soldPrice === null) return showToast('⚠ Enter a Price/Unit or Price Sold.');
+    if (soldPrice !== null && (isNaN(soldPrice) || soldPrice < 0)) return showToast('⚠ Price Sold must be 0 or more.');
+
+    const total = soldPrice !== null ? soldPrice : price * qty;
+    const time  = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+    sales.push({ id: ++idCounter, name, price: isNaN(price) ? null : price, soldPrice, qty, total, time });
+    saveAll(); renderAll(); updateStats();
+
+    document.getElementById('iName').value  = '';
+    document.getElementById('iPrice').value = '';
+    document.getElementById('iSold').value  = '';
+    document.getElementById('iQty').value   = '1';
+    document.getElementById('totalPreview').textContent = '—';
+    document.getElementById('iName').focus();
+    showToast('✓ ' + name + ' added!');
+  }
+
+  // ── RENDER ──
+  function renderAll() {
+    renderTable();
+    renderCards();
+    document.getElementById('exportBtn').disabled = sales.length === 0;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('salesBody');
+    tbody.innerHTML = '';
+    if (sales.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="icon">🏷️</span>No sales yet — add your first item above!</div></td></tr>`;
+      return;
+    }
+    sales.forEach((s, idx) => {
+      const isBargain = s.soldPrice !== null && s.soldPrice < s.price;
+      const priceDisplay = s.price !== null ? `£${s.price.toFixed(2)}` : '—';
+      const soldDisplay  = s.soldPrice !== null
+        ? `£${s.soldPrice.toFixed(2)}${isBargain ? ' <span class="discount-pill">BARGAIN</span>' : ''}`
+        : '—';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="row-num">${idx+1}</td>
+        <td class="item-name">${escHtml(s.name)}</td>
+        <td ${isBargain ? 'class="strike"' : ''}>${priceDisplay}</td>
+        <td class="money-cell">${soldDisplay}</td>
+        <td>${s.qty}</td>
+        <td class="money-cell">£${s.total.toFixed(2)}</td>
+        <td>${s.time}</td>
+        <td><div class="action-btns">
+          <button class="btn-edit" onclick="openEdit(${s.id})">✎</button>
+          <button class="btn-del"  onclick="deleteItem(${s.id})">✕</button>
+        </div></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderCards() {
+    const c = document.getElementById('mobileCards');
+    c.innerHTML = '';
+    if (sales.length === 0) {
+      c.innerHTML = '<div class="mobile-empty"><span class="icon">🏷️</span>No sales yet — add your first item above!</div>';
+      return;
+    }
+    sales.forEach((s, idx) => {
+      const isBargain = s.soldPrice !== null && s.soldPrice < s.price;
+      const priceLabel = s.soldPrice !== null
+        ? (isBargain
+            ? `<span style="text-decoration:line-through;color:var(--line)">£${s.price.toFixed(2)}</span> <span style="color:var(--accent)">£${s.soldPrice.toFixed(2)}</span> <span class="discount-pill">BARGAIN</span>`
+            : `£${s.soldPrice.toFixed(2)}`)
+        : (s.price !== null ? `£${s.price.toFixed(2)}` : '—');
+
+      const div = document.createElement('div');
+      div.className = 'sale-card';
+      div.innerHTML = `
+        <span class="card-num">${idx+1}</span>
+        <div class="card-body">
+          <div class="card-name">${escHtml(s.name)}</div>
+          <div class="card-meta">
+            <span>${priceLabel}</span>
+            <span>Qty: ${s.qty}</span>
+            <span>${s.time}</span>
+          </div>
+        </div>
+        <span class="card-total">£${s.total.toFixed(2)}</span>
+        <div class="card-actions">
+          <button class="btn-edit" onclick="openEdit(${s.id})">✎</button>
+          <button class="btn-del"  onclick="deleteItem(${s.id})">✕</button>
+        </div>`;
+      c.appendChild(div);
+    });
+  }
+
+  // ── DELETE ──
+  function deleteItem(id) {
+    sales = sales.filter(s => s.id !== id);
+    saveAll(); renderAll(); updateStats();
+    showToast('Item removed.');
+  }
+
+  // ── STATS ──
+  function updateStats() {
+    document.getElementById('statItems').textContent = sales.length;
+    document.getElementById('statUnits').textContent = sales.reduce((a,s) => a + s.qty, 0);
+    document.getElementById('statTotal').textContent = '£' + sales.reduce((a,s) => a + s.total, 0).toFixed(2);
+  }
+
+  // ── CLEAR ALL ──
+  function clearAll() {
+    if (!sales.length) return;
+    if (!confirm('Clear all sales records?')) return;
+    sales = [];
+    saveAll(); renderAll(); updateStats();
+    showToast('All records cleared.');
+  }
+
+  // ── EDIT MODAL ──
+  function openEdit(id) {
+    const s = sales.find(x => x.id === id);
+    if (!s) return;
+    editingId = id;
+    document.getElementById('eName').value  = s.name;
+    document.getElementById('ePrice').value = s.price !== null ? s.price : '';
+    document.getElementById('eSold').value  = s.soldPrice !== null ? s.soldPrice : '';
+    document.getElementById('eQty').value   = s.qty;
+    document.getElementById('editModal').classList.add('open');
+    setTimeout(() => document.getElementById('eName').focus(), 100);
+  }
+  function closeModal() {
+    document.getElementById('editModal').classList.remove('open');
+    editingId = null;
+  }
+  function saveEdit() {
+    const name      = document.getElementById('eName').value.trim();
+    const price     = parseFloat(document.getElementById('ePrice').value);
+    const soldRaw   = document.getElementById('eSold').value;
+    const soldPrice = soldRaw !== '' ? parseFloat(soldRaw) : null;
+    const qty       = parseInt(document.getElementById('eQty').value) || 1;
+
+    if (!name) return showToast('⚠ Please enter an item name.');
+    if ((isNaN(price) || price < 0) && soldPrice === null) return showToast('⚠ Enter a Price/Unit or Price Sold.');
+
+    const total = soldPrice !== null ? soldPrice : price * qty;
+    const idx   = sales.findIndex(x => x.id === editingId);
+    if (idx === -1) return;
+    sales[idx] = { ...sales[idx], name, price: isNaN(price) ? null : price, soldPrice, qty, total };
+    saveAll(); renderAll(); updateStats();
+    closeModal();
+    showToast('✓ ' + name + ' updated!');
+  }
+  function deleteFromModal() {
+    if (!confirm('Delete this item?')) return;
+    sales = sales.filter(s => s.id !== editingId);
+    saveAll(); renderAll(); updateStats();
+    closeModal();
+    showToast('Item deleted.');
+  }
+  document.getElementById('editModal').addEventListener('click', e => { if (e.target === document.getElementById('editModal')) closeModal(); });
+
+  // ── EXPORT ──
+  function exportXLSX() {
+    if (!sales.length) return;
+    const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g,'-');
+    const rows = sales.map((s,i) => ({
+      '#': i+1, 'Item Name': s.name,
+      'Price per Unit (£)': s.price ?? '',
+      'Price Sold (£)': s.soldPrice ?? (s.price ?? ''),
+      'Quantity': s.qty, 'Total Price (£)': s.total, 'Time': s.time
+    }));
+    rows.push({ '#':'', 'Item Name':'TOTAL', 'Price per Unit (£)':'', 'Price Sold (£)':'',
+      'Quantity': sales.reduce((a,s)=>a+s.qty,0),
+      'Total Price (£)': parseFloat(sales.reduce((a,s)=>a+s.total,0).toFixed(2)), 'Time':'' });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch:5 },{ wch:28 },{ wch:18 },{ wch:16 },{ wch:10 },{ wch:16 },{ wch:8 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Car Boot ' + dateStr);
+    XLSX.writeFile(wb, 'car-boot-' + dateStr + '.xlsx');
+    showToast('✓ Excel file downloaded!');
+  }
+
+  // ── TOAST ──
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
